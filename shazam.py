@@ -3,6 +3,7 @@ from scipy.io import wavfile
 import matplotlib.mlab as mlab
 import matplotlib.pyplot as plt
 import numpy as np
+import time
 from scipy.ndimage.filters import maximum_filter
 from scipy.ndimage.morphology import (binary_erosion,
                                       generate_binary_structure,
@@ -12,6 +13,11 @@ from itertools import groupby
 from operator import itemgetter as ig
 from collections import Counter
 import pdb
+import os
+import sounddevice as sd
+np.seterr(divide='ignore')
+fs=44100
+
 
 """ scale frequency axis logarithmically """    
 def logscale_spec(spec, sr=44100, factor=20.):
@@ -44,8 +50,7 @@ def logscale_spec(spec, sr=44100, factor=20.):
 def read_file(path):
     fs,samples = wavfile.read(path)
     if samples.ndim >= 2:
-        samples = np.mean(samples,axis=1)
-    #samples = samples[44100:20*44100]
+        samples = np.mean(samples,axis=1)#*10e-6
     return fs,samples
 
 def get_spectrogram(fs,samples,w_size=4096,window=mlab.window_hanning,overlap_ratio=0.5,plot=False):
@@ -166,10 +171,9 @@ def fingerprint_song(song):
         myDB.add(f)
     myDB.song_table[song] = len(hashes)
 
-def recognize_recording(song):
-    fs,samples = read_file(song)
-    spec = get_spectrogram(fs,samples,plot=False)
-    peaks = get_peaks(spec,plot=False)
+def recognize_recording(samples,fs):
+    spec = get_spectrogram(fs,samples)
+    peaks = get_peaks(spec,amp_min=4,peak_nhood_size=10,plot=True)
     hashes = gen_hashes(peaks)
     matches,songs = myDB.search(hashes)
 
@@ -184,15 +188,40 @@ def recognize_recording(song):
         result.append({"song_id": song,
                        "total_hashes": myDB.song_table[song],
                        "input_hashes": len(hashes),
-                       "matched_hashes": songs[song],
-                       "input_confidence": round(songs[song]/len(hashes),2),
-                       "fingerprint_confidence": round(songs[song]/myDB.song_table[song],2),
-                       "offset_seconds":time_offset})
+                       "matched_hashes": songs[song]})#,
+                       #"input_confidence": round(songs[song]/len(hashes),2),
+                       #"fingerprint_confidence": round(songs[song]/myDB.song_table[song],2),
+                       #"offset_seconds":time_offset})
     return result
 
+def fingerprint_songs():
+    for s in os.listdir("songs"): fingerprint_song("songs/"+s)
 
-songs = ["song.wav","song2.wav"]
-for s in songs: fingerprint_song(s)
-fs = 44100
-results = recognize_recording("recording.wav")
-pdb.set_trace()
+def recognize_directory(path):
+    for s in os.listdir(path):
+        fs,samples = read_file(path"+s)
+        results = recognize_recording(samples,fs)
+        print("Recognizing song: ",s)
+        print(results[0],"\n\n")
+
+def recognize_from_mic(n_seconds=15):
+    print("start playing music")
+    time.sleep(5)
+    print("microphone enabled")
+    recording = sd.rec(int(n_seconds*fs),samplerate=fs,channels=1)
+    sd.wait()
+    print("microphone disabled, searching for matches ...")
+    results = recognize_recording(recording,fs)
+
+fingerprint_songs()
+recognize_directory("trimmed_songs")
+recognize_from_mic()
+
+
+# p = pyaudio.PyAudio()
+
+# stream = p.open(format=pyaudio.paInt16,
+#                 channels=1,
+#                 rate=44100,
+#                 input=True,
+#                 frames_per_buffer=4096)
