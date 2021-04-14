@@ -16,12 +16,15 @@ class Database:
         self.db.append(fingerprint)
 
     def search(self, recording_data):
+        # 
+        # create a mapper, from hash value -> relative offset
         mapper = {}
         for h,offset in recording_data:
             if h in mapper.keys():
                 mapper[h].append(offset)
             else:
                 mapper[h] = [offset]
+
 
         recording_hashes = list(mapper.keys())
         songs = {}
