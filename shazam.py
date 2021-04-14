@@ -2,6 +2,7 @@ from database import Fingerprint, Database
 from utils import read_file
 from fingerprint import get_spectrogram,get_peaks,gen_hashes
 
+import matplotlib.pyplot as plt
 import numpy as np
 import time
 from itertools import groupby
@@ -53,18 +54,21 @@ def recognize_recording(samples,fs):
                        #"offset_seconds":time_offset})
     return result
 
-def recognize_directory(path,limit=None):
-    print("Recognizing all songs from ",path,"...\n")
+def recognize_directory(path,start,end,verbose=0):
+    #print("Recognizing all songs from ",path,"...\n")
     correct = 0
     for s in os.listdir(path):
         fs,samples = read_file(path+"/"+s)
+        samples = samples[start*fs:end*fs]
         results = recognize_recording(samples,fs)
-        matched_song = results[0]["song_id"]
-        print("Recognizing song: ",s)
-        print("Matched song: ",matched_song,"\n")
-        if matched_song== s: correct += 1
+        if len(results) != 0:
+            matched_song = results[0]["song_id"]
+            #print("Recognizing song: ",s)
+            #print("Matched song: ",matched_song,"\n")
+            if matched_song== s: correct += 1
     accuracy = (correct/len(os.listdir(path)))*100
-    print("Shazam correctly identified",accuracy,"percent of songs in",path)
+    if verbose: print("Shazam correctly identified",accuracy,"percent of songs in",path)
+    return accuracy
 
 def recognize_from_mic(fs=44100,n_seconds=15):
     print("start playing music")
@@ -80,10 +84,32 @@ def recognize_from_mic(fs=44100,n_seconds=15):
         matched_song = results[0]["song_id"]
         print("Shazam found the followign match: ",matched_song)
 
+# duration of recording vs recognition accuracy
+def experiment1(dset_path,plot=1):
+    # first fingerprint
+    for genre in os.listdir(dset_path):
+        if not genre.startswith("."): 
+            fingerprint_directory(dset_path+"/"+genre)
+
+    accs = []
+    times = [1,2,3,4,5,6,7,8,9,10,12,13,14,15]
+    for t in times:
+        time_accs = []
+        for genre in os.listdir(dset_path):
+            if not genre.startswith("."): 
+                genre_acc = recognize_directory(dset_path+"/"+genre,start=15,end=15+t)
+                time_accs.append(genre_acc)
+        accs.append(np.mean(time_accs))
+
+    plt.plot(times,accs)
+    plt.title("Duration of Recording vs Recognition Accuracy")
+    plt.xlabel("Duration of recording (s)")
+    plt.ylabel("Recognition Accuracy")
+    plt.show()
+
 def main():
-    fingerprint_directory("songs/dset6/songs")
-    recognize_directory("songs/dset6/trimmed_songs")
-    recognize_from_mic(fs=44100)
+    experiment1("processed_songs/dset100")
 
 if __name__=="__main__":
     main()
+                                                    
