@@ -56,7 +56,7 @@ def get_spectrogram(fs,samples,w_size=4096,window=mlab.window_hanning,overlap_ra
         xlocs = np.float32(np.linspace(0, timebins-1, 5))
         plt.xticks(xlocs, ["%.02f" % l for l in ((xlocs*len(samples)/timebins)+(overlap_ratio*w_size))/fs])
         ylocs = np.int16(np.round(np.linspace(0,freqbins-1,10)))
-        plt.yticks(ylocs, [int(freq[i]) for i in ylocs])
+        plt.yticks(ylocs, [int(freq[i]*2) for i in ylocs])
         plt.show()
 
     return spec
@@ -107,4 +107,4 @@ def gen_hashes(peaks,fan_val=5):
                     h = sha256(s.encode('utf-8')).hexdigest()
                     hashes.append((h[0:20],t1))
     return hashes
-
+    

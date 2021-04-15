@@ -4,20 +4,19 @@ import scipy.signal as sps
 from utils import read_file
 import os
 
-def trim(fs,samples,n_seconds=30):
-    return samples[fs*10:fs*(10+n_seconds)]
 
 def downsample(fs,s,factor=4):
-    return int(fs/4), sps.resample(s,int(len(s)/4))
+    return int(fs/factor), sps.resample(s,int(len(s)/factor))
 
 
 def preprocess_directory(path):
     for song in os.listdir(path):
         fs,samples = read_file(path+"/"+song)
         if samples.ndim >=2: samples = np.mean(samples,axis=1)
-        #samples = trim(fs,samples,n_seconds=30)
-        samples = samples[:fs*45]
+        sos = sps.butter(4, [10,10000], 'bandpass', fs=fs, output='sos')
+        filtered = sps.sosfilt(sos, samples)
         fs,samples = downsample(fs,samples,factor=4)
+        samples = samples[:fs*60]
         os.makedirs("processed_"+path,exist_ok=True)
         wavfile.write("processed_"+path+"/"+song,fs,samples.astype(np.int16))
 
@@ -41,4 +40,9 @@ MP3 -> WAV
 from pydub import AudioSegment as AS
 s = AS.from_mp3(file.mp3)
 s.export(file.wav,format="wav")å
+
+for f in os.listdir("processed_songs/dset6"):
+    fs,samples = read_file("processed_songs/dset6/"+f)
+    x = get_spectrogram(fs,samples,plot=True)
+
 """

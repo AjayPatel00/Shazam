@@ -45,7 +45,7 @@ def recognize_recording(samples,fs):
 
     result = []
     for song,offset,_ in matches[:5]:
-        time_offset = int(float(offset)/44100*4096*0.5)
+        time_offset = int(float(offset)/fs*4096*0.5) #sampling rate * window size * overlap ratio
         result.append({"song_id": song,
                        "total_hashes": myDB.song_table[song],
                        "input_hashes": len(hashes),
@@ -153,7 +153,12 @@ def experiment2(dset_path,duration=10,plot=1):
 
 def main():
     #experiment1("processed_songs/dset100")
-    experiment2("processed_songs/dset100")
+    #experiment2("processed_songs/dset100")
+    for genre in os.listdir("processed_songs/dset100"):
+        if not genre.startswith("."): 
+            fingerprint_directory("processed_songs/dset100"+"/"+genre)
+    pdb.set_trace()
+
 
 if __name__=="__main__":
     start = time.time()
