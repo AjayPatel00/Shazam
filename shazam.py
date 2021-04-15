@@ -17,7 +17,9 @@ fs=11025
 myDB = Database()
 
 
-
+# given a song path, reads the file generates the spectrogram, 
+# gets the peak points, genereates hashes, creates fingerprint
+# object, and stores to database
 def fingerprint_song(song):
     song_name = song.split("/")[-1]
     fs,samples = read_file(song)
@@ -29,9 +31,15 @@ def fingerprint_song(song):
         myDB.add(f)
     myDB.song_table[song_name] = len(hashes)
 
+# fingerprint directory containing songs
 def fingerprint_directory(path):
     for s in os.listdir(path): fingerprint_song(path+"/"+s)
 
+# recognize recording given samples and sampling freqeucny
+# computes spectrogram, gens peaks, gens hashes, and searches
+# database for matches. Processes matched results by grouping
+# by song and max offset, and returning song with most matched
+# hashes. So highest confidence match
 def recognize_recording(samples,fs):
     spec = get_spectrogram(fs,samples)
     peaks = get_peaks(spec,amp_min=4,peak_nhood_size=10)
@@ -39,25 +47,31 @@ def recognize_recording(samples,fs):
     matches,songs = myDB.search(hashes)
 
     f = lambda x: (x[0],x[1])
+    # count occurences of (song,offset) and return (song,offset,count)
     counts = [(*k,len(list(g))) for k,g in groupby(sorted(matches,key=f), key=f)]
+    # for each (song,offset) pair, return (song,offset) with highest count
     matches = [max(list(g),key=ig(2)) for k,g in groupby(counts, key=ig(0))]
+    # sort matches by count
     matches = sorted(matches,key=ig(2),reverse=True)
 
     result = []
+    # return top 5 songs in matches
     for song,offset,_ in matches[:5]:
         time_offset = int(float(offset)/fs*4096*0.5) #sampling rate * window size * overlap ratio
-        result.append({"song_id": song,
-                       "total_hashes": myDB.song_table[song],
-                       "input_hashes": len(hashes),
-                       "matched_hashes": songs[song]})#,
+        result.append({"song_id": song, "total_hashes": myDB.song_table[song],
+                       "input_hashes": len(hashes), "matched_hashes": songs[song]})
                        #"input_confidence": round(songs[song]/len(hashes),2),
                        #"fingerprint_confidence": round(songs[song]/myDB.song_table[song],2),
                        #"offset_seconds":time_offset})
     return result
 
+# recognize all songs from directory. given a start and end,
+# represneting the length of the desired recording. 
+# if Noise then add SNR level of Additive Gaussian White Noise
 def recognize_directory(path,start,end,noise=False,snr=None,verbose=0):
     #print("Recognizing all songs from ",path,"...\n")
     correct = 0
+    # count number of correctly recognized zsongs and return accuracy
     for s in os.listdir(path):
         fs,samples = read_file(path+"/"+s)
         if noise: samples = add_noise(snr,samples)
@@ -84,15 +98,16 @@ def recognize_from_mic(fs=44100,n_seconds=15):
         matched_song = results[0]["song_id"]
         print("Shazam found the followign match: ",matched_song)
 
-# duration of recording vs recognition accuracy
+# measure recognition accuracy as a fucntion of recording duration
 def experiment1(dset_path,plot=1):
-    # first fingerprint
+    # first fingerprint songs in dataset
     for genre in os.listdir(dset_path):
         if not genre.startswith("."): 
             fingerprint_directory(dset_path+"/"+genre)
 
     accs = []
     times = [1,2,3,4,5,6,7,8,9,10,12,13,14,15]
+    # recognize and track the accuracy at each recording duration
     for t in times:
         time_accs = []
         for genre in os.listdir(dset_path):
@@ -112,12 +127,15 @@ def experiment1(dset_path,plot=1):
 # so that the signal to noise ratiois as specified
 # RMS_noise is ~= std of noise since mean is close to 0
 def add_noise(snr,samples):
+    # compute rms of signal
     signal_rms = math.sqrt(np.mean([s**2 for s in samples]))
+    # compute rms of noise 
     noise_rms = math.sqrt(signal_rms**2/(pow(10,snr/10)))
+    # since using AWGN, mean is close to 0, so std is simply rms_noise
     std = noise_rms
     noise = np.random.normal(0,std,samples.shape[0])
-    noisy_samples = noise+samples
-    return noisy_samples
+    return noise+samples
+
 
 def experiment2(dset_path,duration=10,plot=1):
     # first fingerprint
@@ -142,7 +160,6 @@ def experiment2(dset_path,duration=10,plot=1):
                 snr_accs.append(genre_acc)
         accs.append(np.mean(snr_accs))
     
-    print(accs)
     if plot:
         plt.plot(snrs,accs)
         plt.title("Recognition Accuracy at Various Signal-Noise-Ratio Levels")
@@ -152,24 +169,15 @@ def experiment2(dset_path,duration=10,plot=1):
         plt.show()
 
 def main():
-    #experiment1("processed_songs/dset100")
-    #experiment2("processed_songs/dset100")
+    experiment1("processed_songs/dset100")
+    experiment2("processed_songs/dset100")
     for genre in os.listdir("processed_songs/dset100"):
         if not genre.startswith("."): 
             fingerprint_directory("processed_songs/dset100"+"/"+genre)
-    pdb.set_trace()
+    recognize_from_mic()
 
 
 if __name__=="__main__":
     start = time.time()
     main()
     print(time.time()-start)
-
-# for i in range(-30,100,10):
-#     n = get_noise(samples,i)
-#     noisy_samples = samples+n
-#     plt.plot(noisy_samples[:10000],label="noisy")
-#     plt.plot(samples[:10000],label="original samples")
-#     plt.title("signal to noise ratio = "+str(i))
-#     plt.legend()
-#     plt.show()

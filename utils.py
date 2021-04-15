@@ -5,5 +5,5 @@ import numpy as np
 def read_file(path):
     fs,samples = wavfile.read(path)
     if samples.ndim >= 2:
-        samples = np.mean(samples,axis=1)#*10e-6
+        samples = np.mean(samples,axis=1)
     return fs,samples
