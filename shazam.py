@@ -86,7 +86,7 @@ def recognize_directory(path,start,end,noise=False,snr=None,verbose=0):
 
 def recognize_from_mic(fs=44100,n_seconds=15):
     print("start playing music")
-    time.sleep(5)
+    #time.sleep(5)
     print("microphone enabled")
     recording = sd.rec(int(n_seconds*fs),samplerate=fs,channels=1)
     sd.wait()
@@ -169,15 +169,15 @@ def experiment2(dset_path,duration=10,plot=1):
         plt.show()
 
 def main():
-    experiment1("processed_songs/dset100")
-    experiment2("processed_songs/dset100")
+    #experiment1("processed_songs/dset100")
+    #experiment2("processed_songs/dset100")
     for genre in os.listdir("processed_songs/dset100"):
         if not genre.startswith("."): 
             fingerprint_directory("processed_songs/dset100"+"/"+genre)
-    recognize_from_mic()
+    recognize_from_mic(fs=11025,n_seconds=15)
 
 
 if __name__=="__main__":
-    start = time.time()
+    #start = time.time()
     main()
-    print(time.time()-start)
+    #print(time.time()-start)
